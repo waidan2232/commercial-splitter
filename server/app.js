@@ -13,6 +13,7 @@ const Plan = require('../core/plan');
 const scan = require('../core/scan');
 const Cutter = require('../core/cutter');
 const Namer = require('../core/namer');
+const speech = require('../core/speech');
 const { Settings, detectSettings, sanitize } = require('../core/settings');
 const { streamZip } = require('./zip');
 const pkg = require('../package.json');
@@ -40,6 +41,7 @@ function createApp(opts = {}) {
   const thumbs = semaphore(3);
 
   if (opts.ffmpegDir) ff.addSearchDir(opts.ffmpegDir);
+  if (opts.modelsDir) speech.addModelDir(opts.modelsDir);
   ff.locate(settings.get().ffmpegFolder);
 
   // ---------------------------------------------------------------- access
@@ -204,6 +206,7 @@ function createApp(opts = {}) {
       roots: mode === 'web' ? roots.map((r) => ({ name: path.basename(r) || r, path: r })) : [],
       upload: mode === 'web' && !!uploadDir,
       locked: !!passwordHash,
+      speech: await speech.available(),
     });
   }
 

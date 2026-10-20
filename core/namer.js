@@ -7,6 +7,7 @@ const path = require('path');
 const ff = require('./ffmpeg');
 const Plan = require('./plan');
 const { safeName } = require('./cutter');
+const speech = require('./speech');
 
 let scheduler = null, starting = null, workerCount = 0;
 
@@ -74,6 +75,7 @@ async function shutdown() {
   const s = scheduler;
   scheduler = null;
   if (s) await s.terminate();
+  await speech.shutdown();
 }
 
 /**
@@ -107,12 +109,15 @@ async function grabFrames(file, seg, signal) {
 /** Reads the on-screen text of one clip and returns a name for it ("" if nothing usable). */
 async function nameOne(file, seg, signal) {
   const s = await ensureWorkers();
+  // What's on screen and what's said, at the same time (the speech runs on its own thread).
+  const heard = speech.transcribe(file, seg, signal).catch(() => '');
   const frames = await grabFrames(file, seg, signal);
   if (signal && signal.aborted) throw new ff.Cancelled();
   const texts = await Promise.all(frames.map((img) => s.addJob('recognize', img).then((r) => r.data.text || '', () => '')));
+  const transcript = await heard;
   if (signal && signal.aborted) throw new ff.Cancelled();
-  if (debug) debug(seg, texts);
-  return guessName(texts);
+  if (debug) debug(seg, texts, transcript);
+  return chooseName(texts, transcript);
 }
 
 // ------------------------------------------------------------------ picking a name from the text
@@ -149,8 +154,28 @@ const lower = (s) => s.toLowerCase();
 
 /** Picks a short name for a commercial from the text read off its frames (earliest first). */
 function guessName(frameTexts) {
+  const r = readScreen(frameTexts);
+  return withPromo(r.domain || r.name, r.promo);
+}
+
+function withPromo(name, promo) {
+  if (promo) name = name.length > 0 ? 'Promo - ' + name : 'Promo';
+  return clean(name);
+}
+
+/**
+ * What the on-screen text says about the brand: { domain, name, promo, words } — a website if one is shown, the most
+ * prominent repeated word(s), whether it's a TV-network promo, and every word read (for matching what's said).
+ */
+function readScreen(frameTexts) {
   const n = frameTexts.length;
-  if (n === 0) return '';
+  const words = new Map();
+  for (const t of frameTexts) for (const m of (t || '').matchAll(WORD_RX)) {
+    const w = m[0].replace(/^['\u2019&-]+|['\u2019&-]+$/g, '');
+    if (w.length >= 3 && !words.has(lower(w))) words.set(lower(w), w);
+  }
+  const result = { domain: '', name: '', promo: frameTexts.some((t) => PROMO_RX.test(t || '')), words };
+  if (n === 0) return result;
   const weight = (i) => 1 + i / n; // later frames count a bit more (end cards)
 
   // 1. A website is the most reliable brand marker.
@@ -170,7 +195,8 @@ function guessName(frameTexts) {
   }
   if (domains.size > 0) {
     const best = domainOrder.slice().sort((a, b) => domains.get(b) - domains.get(a) || b.length - a.length)[0];
-    return clean(pretty(domainForms.get(best)));
+    result.domain = clean(pretty(domainForms.get(best)));
+    return result;
   }
 
   // 2. Otherwise the most repeated prominent word, plus its usual neighbour ("John Deere").
@@ -225,10 +251,122 @@ function guessName(frameTexts) {
     }
   }
 
-  // 3. TV-network promos ("8/7c", "tonight") get a "Promo" label.
-  const promo = frameTexts.some((t) => PROMO_RX.test(t || ''));
-  if (promo) name = name.length > 0 ? 'Promo - ' + name : 'Promo';
-  return clean(name);
+  result.name = clean(name);
+  return result;
+}
+
+// ------------------------------------------------------------------ what's said
+
+const BRAND_LEAD = /\b(?:at|from|with|on|by|visit|try|choose|introducing|called|call|only at|exclusively at)\s+((?:[A-Z][\w'\u2019&-]*)(?:\s+(?:[A-Z][\w'\u2019&-]*|&))*)/g;
+const SPOKEN_EXTRA = new Set(('i i\'m i\'ve i\'ll ok okay yeah yes no oh hey hi mr mrs ms dr so and but or here this that we you it it\'s ' +
+  'what when get introducing january february march april may june july august september october november december ' +
+  'music playing applause laughter tv usa america american god christmas easter').split(' '));
+
+/** "[MUSIC PLAYING] … at Red Lobster." → plain sentences; spoken websites ("priceline dot com") written as such. */
+function cleanTranscript(t) {
+  return String(t || '')
+    .replace(/\[[^\]]*\]|\([^)]*\)|[\u266a\u266b]/g, ' ')
+    .replace(/\b([a-z0-9][a-z0-9-]*)\s+dot\s+(com|net|org|tv)\b/gi, '$1.$2')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Brand candidates from what's said: { domains: [...], phrases: Map(lower phrase → { form, score }) }. A brand is
+ * usually said after "at", "from", "with"…, repeated, and near the end.
+ */
+function readSpeech(transcript) {
+  const text = cleanTranscript(transcript);
+  const domains = [...text.matchAll(DOMAIN_RX)].map((m) => m[1]).filter((d) => /[a-z]/i.test(d) && d.length >= 3);
+  const phrases = new Map();
+  const add = (form, score, lead) => {
+    const words = form.split(/\s+/).filter((w) => !SPOKEN_EXTRA.has(lower(w)) && !STOP.has(lower(w)) && !WEEKDAYS.has(lower(w)));
+    if (!words.length) return;
+    const f = words.join(' ').replace(/[.,!?;:]+$/, '');
+    if (f.length < 3) return;
+    const k = lower(f);
+    const e = phrases.get(k) || { form: f, score: 0, lead: false };
+    e.score += score;
+    e.lead = e.lead || !!lead;
+    phrases.set(k, e);
+  };
+  const len = Math.max(1, text.length);
+  for (const m of text.matchAll(BRAND_LEAD)) add(m[1], 1.5 + m.index / len, true);
+  // Capitalized words in the middle of a sentence (not just sentence starts).
+  for (const m of text.matchAll(/(?<=[a-z,] )([A-Z][\w'\u2019&-]*(?:\s+[A-Z][\w'\u2019&-]*){0,2})/g)) add(m[1], 0.5 + m.index / len);
+  // Sentence starts count a little: enough to confirm a brand that's also on screen, never enough on their own.
+  for (const m of text.matchAll(/(?:^|[.!?] )([A-Z][\w'\u2019&-]*(?:\s+[A-Z][\w'\u2019&-]*){0,2})/g)) add(m[1], 0.25);
+  return { domains, phrases };
+}
+
+/** Same word, allowing for a misheard or misread letter in longer words ("Reels" / "Reelz"). */
+function similar(a, b) {
+  a = lower(a);
+  b = lower(b);
+  if (a === b) return true;
+  if (Math.min(a.length, b.length) < 5 || Math.abs(a.length - b.length) > 1) return false;
+  let i = 0, j = 0, edits = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) { i++; j++; continue; }
+    if (++edits > 1) return false;
+    if (a.length > b.length) i++; else if (b.length > a.length) j++; else { i++; j++; }
+  }
+  return edits + (a.length - i) + (b.length - j) <= 1;
+}
+
+/** The on-screen spelling of a spoken word, if the word was also read on screen. */
+function seenAs(word, screenWords) {
+  if (screenWords.has(lower(word))) return screenWords.get(lower(word));
+  for (const w of screenWords.values()) if (similar(word, w)) return w;
+  return null;
+}
+
+/**
+ * Picks a name from the on-screen text and what's said: a website shown on screen; a brand both heard and seen
+ * (spelled as on screen); the on-screen name; a website that's said; a brand that's said.
+ */
+function chooseName(frameTexts, transcript) {
+  const screen = readScreen(frameTexts);
+  const heard = readSpeech(transcript);
+  if (screen.domain) return withPromo(screen.domain, screen.promo);
+
+  for (const d of heard.domains) {
+    const seen = seenAs(d, screen.words);
+    if (seen) return withPromo(pretty(seen), screen.promo);
+  }
+  // A network promo names the channel all the time; the show's name on screen says more.
+  if (screen.promo && screen.name) return withPromo(screen.name, true);
+  const both = [];
+  for (const p of heard.phrases.values()) {
+    const words = p.form.split(' ');
+    const matched = words.map((w) => seenAs(w, screen.words));
+    if (!matched.some(Boolean)) continue;
+    // Spell the words that were seen as on screen. The other words are kept ("…at Red Lobster" → "Red" + "Lobster")
+    // only when the brand was clearly named ("at", "from", …), otherwise they're likely misheard ("met Janet Lowe's").
+    const form = words.map((w, i) => (matched[i] ? fixCase(matched[i], w) : p.lead ? w : '')).filter(Boolean).join(' ');
+    both.push({ form, score: p.score + matched.filter(Boolean).length });
+  }
+  if (both.length) {
+    both.sort((a, b) => b.score - a.score);
+    return withPromo(both[0].form, screen.promo);
+  }
+  if (screen.name) return withPromo(screen.name, screen.promo);
+  if (heard.domains.length) return withPromo(pretty(heard.domains[heard.domains.length - 1]), screen.promo);
+  const said = [...heard.phrases.values()].filter((p) => p.score >= 1.5).sort((a, b) => b.score - a.score);
+  return withPromo(said.length ? said[0].form : '', screen.promo);
+}
+
+/**
+ * How to write a word that was both seen and heard. Mixed case on screen is the brand's own spelling (eHarmony);
+ * otherwise the heard form if it's the same word ("LOWES" → "Lowe's", "tbs" → "TBS"), else the on-screen letters
+ * ("REELZ" heard as "Reels" → "Reelz").
+ */
+function fixCase(seen, heard) {
+  const letters = seen.replace(/[^A-Za-z]/g, '');
+  // Capitals inside a word that also has small letters: the brand's own spelling.
+  if (/[a-z]/.test(letters) && /[A-Z]/.test(letters.slice(1))) return seen;
+  if (lower(heard.replace(/['\u2019]/g, '')) === lower(seen.replace(/['\u2019]/g, ''))) return heard;
+  return seen.length <= 4 ? seen.toUpperCase() : seen.charAt(0).toUpperCase() + seen.slice(1).toLowerCase();
 }
 
 function looksLikeWord(w) {
@@ -270,7 +408,7 @@ function clean(name) {
 }
 
 module.exports = {
-  available, ensureWorkers, shutdown, nameOne, nameAll, grabFrames, guessName, clean,
+  available, ensureWorkers, shutdown, nameOne, nameAll, grabFrames, guessName, chooseName, readSpeech, clean,
   get workerCount() { return workerCount; },
   set debug(fn) { debug = fn; },
 };

@@ -83,3 +83,21 @@ test('results survive a trip through JSON', () => {
   assert.ok(Number.isNaN(back.silence));
   assert.strictEqual(back.info.frames.length, r.info.frames.length);
 });
+
+test('names from on-screen text and speech', () => {
+  const Namer = require('../core/namer');
+  // A website on screen wins.
+  assert.strictEqual(Namer.chooseName(['', 'priceline.com'], 'Big deal. Introducing Big Deal Days.'), 'Priceline');
+  // Seen and heard: spelled as on screen, extra heard words kept.
+  assert.strictEqual(Namer.chooseName(['LOBSTER', 'LOBSTER FEST'], 'Eleven more choices right now at Red Lobster.'), 'Red Lobster');
+  assert.strictEqual(Namer.chooseName(['REELZ', 'REELZ channel 238'], 'Reels Channel, all about movies.'), 'Reelz');
+  assert.strictEqual(Namer.chooseName(['Lowes', 'garden'], 'But luckily you met Janet Lowe\'s.'), 'Lowe\'s');
+  assert.strictEqual(Namer.chooseName(['eHarmony'], 'some of the millions we matched on E-Harmony'), 'eHarmony');
+  // Heard only: a brand after "at"/"with"…
+  assert.strictEqual(Namer.chooseName(['', ''], 'Booking my family trip with Expedia was easy.'), 'Expedia');
+  // A spoken website.
+  assert.strictEqual(Namer.chooseName([''], 'brought to you by chemistry dot com'), 'Chemistry');
+  // Nothing useful heard: the on-screen name as before.
+  assert.strictEqual(Namer.chooseName(['Snapple', 'Snapple'], '[MUSIC PLAYING]'), 'Snapple');
+  assert.strictEqual(Namer.chooseName([''], '[MUSIC PLAYING]'), '');
+});

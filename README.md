@@ -1,7 +1,8 @@
 # Commercial Splitter
 
 Splits a commercial compilation (a recording of a TV ad break, a YouTube compilation…) into **one file per
-commercial**, and names each file after the commercial it contains: `01 - Expedia.mov`, `02 - Priceline.mov`, …
+commercial**, and names each file after the commercial it contains — from the brand or website shown on screen and
+what's said in it: `01 - Expedia.mov`, `02 - Red Lobster.mov`, …
 
 It finds the breaks between commercials by themselves — the black frames where the sound also drops out — and
 ignores fades to black inside a commercial. You can watch every clip in the built-in player, adjust its start and
@@ -24,8 +25,8 @@ Get the latest version from the [**Releases**](../../releases/latest) page:
 | Linux | `…-linux-x86_64.AppImage` or `…-linux-amd64.deb` |
 | Docker (web app) | `ghcr.io/waidan2232/commercial-splitter` — see [Docker](#docker-web-app) |
 
-Everything is included (FFmpeg and the text recognition used for naming). Nothing is uploaded anywhere: all the work
-happens on your computer (or your server, with Docker).
+Everything is included (FFmpeg, and the text and speech recognition used for naming). Nothing is uploaded anywhere:
+all the work happens on your computer (or your server, with Docker).
 
 **First start.** The app isn't signed with a paid certificate, so the system asks once:
 
@@ -75,7 +76,7 @@ current settings.
 | Shortest clip | 4 s | Pieces shorter than this are left unticked. |
 | Smart detection | on | Uses the sound too: real breaks are black *and* silent, so fades to black inside a commercial are ignored. Also prefers typical lengths (15, 30, 60 s). Turn it off to split at every black gap. |
 | How clips are cut | Exact frames | See below. |
-| Name clips | on | Names the files from the brand or website shown on screen. |
+| Name clips automatically | on | Names the files from the brand or website shown on screen and what's said ("…at Red Lobster"). |
 
 **How clips are cut.**
 *Exact frames* (recommended): every clip starts and ends on the exact frame and plays correctly in every player and
@@ -87,8 +88,8 @@ only start on a keyframe, so starts can be off by a second or two.
 **Good to know.** Commercials that cut straight into each other, with no black frames in between, are found from
 the sound: at such a join it usually dips for a moment and the soundtrack changes, while inside a commercial it
 carries on across the picture cuts. Typical lengths (15, 30, 60 s) help decide. If two still end up in one clip, use
-Split — the ★ suggestions are the likeliest places. Names come from text on screen, so a
-commercial that never shows its brand as text stays "Commercial".
+Split — the ★ suggestions are the likeliest places. Names come from the text on screen and what's said; a
+commercial that neither shows nor says its brand (music only, a logo without text) stays "Commercial".
 
 ## Docker (web app)
 
@@ -138,6 +139,7 @@ You need [Node.js](https://nodejs.org) 20 or newer.
 ```sh
 npm ci
 node scripts/fetch-ffmpeg.js     # downloads FFmpeg for this computer into vendor/ffmpeg
+node scripts/fetch-models.js     # downloads the speech recognition model into vendor/models
 npm start                        # the desktop app
 npm run web                      # or the web version on http://localhost:8080 (needs FFmpeg on the PATH or in vendor/)
 npm test
@@ -165,5 +167,7 @@ Commercial Splitter is MIT-licensed (see [LICENSE](LICENSE)). It includes:
 - [FFmpeg](https://ffmpeg.org) (GPL; the desktop apps include static builds — see `resources/ffmpeg/LICENSE.txt`
   in the app — and the Docker image uses Debian's package).
 - [Tesseract.js](https://github.com/naptha/tesseract.js) and its English language data (Apache 2.0).
+- [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) (Apache 2.0) with OpenAI's
+  [Whisper](https://github.com/openai/whisper) tiny.en model (MIT), for speech recognition.
 - [Inter](https://rsms.me/inter/) typeface (SIL Open Font License).
 - [Electron](https://www.electronjs.org) (MIT).

@@ -82,7 +82,8 @@ function start() {
     const ffmpegDir = app.isPackaged
       ? path.join(process.resourcesPath, 'ffmpeg')
       : path.join(__dirname, '..', 'vendor', 'ffmpeg', process.platform + '-' + process.arch);
-    engine = createApp({ mode: 'desktop', token, dataDir: app.getPath('userData'), ffmpegDir });
+    const modelsDir = app.isPackaged ? path.join(process.resourcesPath, 'models') : path.join(__dirname, '..', 'vendor', 'models');
+    engine = createApp({ mode: 'desktop', token, dataDir: app.getPath('userData'), ffmpegDir, modelsDir });
     await new Promise((resolve) => engine.server.listen(0, '127.0.0.1', resolve));
     const origin = 'http://127.0.0.1:' + engine.server.address().port;
 
@@ -157,11 +158,11 @@ function runSmokeTest(win) {
       const result = await win.webContents.executeJavaScript(`(async () => {
         for (let i = 0; i < 100 && !window.CommercialSplitter; i++) await new Promise((r) => setTimeout(r, 100));
         const info = await (await fetch('api/info')).json();
-        return { ui: !!window.CommercialSplitter, desktop: !!window.desktop, ffmpeg: info.ffmpeg, mode: info.mode };
+        return { ui: !!window.CommercialSplitter, desktop: !!window.desktop, ffmpeg: info.ffmpeg, speech: info.speech, mode: info.mode };
       })()`);
       clearTimeout(timer);
       console.log('SMOKE TEST: ' + JSON.stringify(result));
-      if (!result.ui || !result.desktop || result.mode !== 'desktop' || !result.ffmpeg.found) return fail('unexpected result');
+      if (!result.ui || !result.desktop || result.mode !== 'desktop' || !result.ffmpeg.found || !result.speech) return fail('unexpected result');
       app.exit(0);
     } catch (e) {
       fail(e.message);

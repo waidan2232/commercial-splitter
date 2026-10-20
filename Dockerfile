@@ -7,12 +7,15 @@
 FROM node:22-bookworm-slim
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ffmpeg tini \
+ && apt-get install -y --no-install-recommends ffmpeg tini bzip2 \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
+# The speech recognition model (for naming commercials from what's said).
+COPY scripts/fetch-models.js ./scripts/
+RUN node scripts/fetch-models.js
 COPY core ./core
 COPY server ./server
 COPY web ./web

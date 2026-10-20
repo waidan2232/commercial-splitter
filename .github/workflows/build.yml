@@ -57,6 +57,11 @@ jobs:
           set -o pipefail
           mkdir -p logs
           node scripts/fetch-ffmpeg.js ${{ matrix.platform }} ${{ matrix.arch }} 2>&1 | tee logs/ffmpeg.log
+      - name: Get the speech model
+        run: node scripts/fetch-models.js
+      - name: Speech recognition for Intel Macs
+        if: matrix.platform == 'darwin' && matrix.arch == 'x64'
+        run: npm install --no-save --force sherpa-onnx-darwin-x64@$(node -p "require('./package.json').dependencies['sherpa-onnx-node']")
       - name: Build
         shell: bash
         run: |

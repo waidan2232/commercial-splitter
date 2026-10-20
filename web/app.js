@@ -702,7 +702,8 @@
         const batch = nameQueue;
         nameQueue = [];
         const report = () => {
-          setStatus('Reading on-screen text to name the commercials: ' + Math.min(done + 1, nameTotal) + ' of ' + nameTotal + '…  (you can watch and edit meanwhile)');
+          setStatus((server.speech ? 'Reading on-screen text and listening' : 'Reading on-screen text') + ' to name the commercials: ' +
+            Math.min(done + 1, nameTotal) + ' of ' + nameTotal + '…  (you can watch and edit meanwhile)');
           setProgress(done / Math.max(1, nameTotal));
         };
         report();
@@ -723,7 +724,7 @@
         }, ac.signal);
         if (ac.signal.aborted || id !== mediaId) return;
       }
-      setStatus(summary() + '  Named ' + named + ' of ' + done + ' from on-screen text — F2 to rename.');
+      setStatus(summary() + '  Named ' + named + ' of ' + done + (server.speech ? ' from on-screen text and speech' : ' from on-screen text') + ' — F2 to rename.');
     } catch (e) {
       if (e.name !== 'AbortError' && !ac.signal.aborted) setStatus(summary() + '  (Naming stopped: ' + e.message + ')');
     } finally {
@@ -1069,7 +1070,7 @@
         'Recommended: every clip starts and ends on the exact frame and plays correctly everywhere. A clip that starts on a keyframe is copied untouched; one that starts between keyframes is re-encoded at high quality (H.264).\n' +
         '“Never re-encode”: copies only, using a start marker some players and editors ignore (they show the end of the previous commercial or a frozen frame). “Keyframes only”: copies only, but starts can be off by a second or two.', cut),
       h('div', { class: 'settings-section', text: 'NAMING AND SAVING' }),
-      row('Name clips from on-screen text', 'Reads the brand or website shown in the commercial and names the file after it.', names.wrap),
+      row('Name clips automatically', 'Reads the brand or website shown in the commercial, and listens for it in what\u2019s said (\u201c\u2026at Red Lobster\u201d), then names the file after it.', names.wrap),
       row(desktop ? 'Open the folder when done' : 'Offer downloads when done', desktop ? 'Shows the saved clips in your file manager.' : 'Lists the saved clips so you can download them to this computer.', open.wrap));
     body.querySelectorAll('.setting-help').forEach((x) => { x.style.whiteSpace = 'pre-line'; });
     const read = (i, lo, hi, fallback) => {
@@ -1148,7 +1149,7 @@
       h('p', { text: '2.  The program finds the breaks: black frames where the sound also drops out. Fades to black inside a commercial are ignored.' }),
       h('p', { text: '3.  Click a clip to see it; press Space to play it — exactly what will be saved.' }),
       h('p', { text: '4.  Adjust a clip by dragging its edges in the strip below the video, or use “Start here” / “End here” at the play position. Merge clips that belong together; Split a clip that holds two commercials.' }),
-      h('p', { text: '5.  Clips are named from the text on screen. Press F2 to fix a name.' }),
+      h('p', { text: '5.  Clips are named from the text on screen and what\u2019s said. Press F2 to fix a name.' }),
       h('p', { text: '6.  Click “Save”. Files are saved as “01 - Name”, “02 - Name”…' }),
       h('div', { class: 'settings-section', text: 'KEYBOARD' }), keys,
       h('p', { class: 'dim', text: 'Clips start and end on the exact frame you choose. A clip that starts on a keyframe is copied untouched; one that starts between keyframes is re-encoded at high quality (H.264) so it plays correctly in every player and editor. Settings has options to never re-encode, with their trade-offs.' }),

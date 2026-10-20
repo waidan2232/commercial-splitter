@@ -84,8 +84,8 @@ async function main(argv) {
   }
   if (names) {
     if (debug) {
-      Namer.debug = (seg, texts) => console.log('--- ' + Plan.formatTime(seg.start) + ' → ' + Namer.guessName(texts) + '\n    ' +
-        texts.map((t) => t.replace(/\n/g, ' | ').trim()).join('\n    '));
+      Namer.debug = (seg, texts, heard) => console.log('--- ' + Plan.formatTime(seg.start) + ' \u2192 ' + Namer.chooseName(texts, heard) +
+        '   (screen: ' + Namer.guessName(texts) + ')\n    heard: ' + (heard || '') + '\n    ' + texts.map((t) => t.replace(/\n/g, ' | ').trim()).join('\n    '));
     }
     const t1 = Date.now();
     const todo = r.segments.filter((s) => s.include);
