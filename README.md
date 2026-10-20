@@ -22,7 +22,7 @@ Get the latest version from the [**Releases**](../../releases/latest) page:
 | macOS (Apple silicon) | `Commercial-Splitter-…-macOS-arm64.dmg` |
 | macOS (Intel) | `Commercial-Splitter-…-macOS-x64.dmg` |
 | Linux | `…-linux-x86_64.AppImage` or `…-linux-amd64.deb` |
-| Docker (web app) | `ghcr.io/OWNER/commercial-splitter` — see [Docker](#docker-web-app) |
+| Docker (web app) | `ghcr.io/waidan2232/commercial-splitter` — see [Docker](#docker-web-app) |
 
 Everything is included (FFmpeg and the text recognition used for naming). Nothing is uploaded anywhere: all the work
 happens on your computer (or your server, with Docker).
@@ -95,7 +95,7 @@ The Docker image serves the same app to any browser on your network — handy on
 ```sh
 docker run -d --name commercial-splitter -p 8080:8080 \
   -v /path/to/your/videos:/videos \
-  ghcr.io/OWNER/commercial-splitter:latest
+  ghcr.io/waidan2232/commercial-splitter:latest
 ```
 
 Then open <http://localhost:8080> (or `http://<server>:8080`). Or with Docker Compose: copy
@@ -117,7 +117,7 @@ Then open <http://localhost:8080> (or `http://<server>:8080`). Or with Docker Co
 | `CS_DATA_DIR` | `/config` | Where settings are kept |
 
 The image also has the command-line mode:
-`docker run --rm -v /path/to/videos:/videos ghcr.io/OWNER/commercial-splitter cli "/videos/my compilation.mp4"`
+`docker run --rm -v /path/to/videos:/videos ghcr.io/waidan2232/commercial-splitter cli "/videos/my compilation.mp4"`
 
 ## Command line
 

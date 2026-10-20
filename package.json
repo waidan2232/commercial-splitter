@@ -102,5 +102,10 @@
         "--no-sandbox"
       ]
     }
+  },
+  "homepage": "https://github.com/waidan2232/commercial-splitter",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/waidan2232/commercial-splitter.git"
   }
 }

@@ -1,6 +1,6 @@
 # Commercial Splitter, web version: the same app in your browser.
 #
-#   docker run -d -p 8080:8080 -v /path/to/your/videos:/videos ghcr.io/<owner>/commercial-splitter
+#   docker run -d -p 8080:8080 -v /path/to/your/videos:/videos ghcr.io/waidan2232/commercial-splitter
 #
 # then open http://localhost:8080 (or http://<server>:8080 from another computer).
 

@@ -27,7 +27,7 @@ async function main(argv) {
   const stored = new Settings();
   const values = stored.get();
   const settings = detectSettings(values);
-  let input = null, outDir = null, format = 'Same as source', dryRun = false, debug = false, names = true;
+  let input = null, outDir = null, format = 'Same as source', dryRun = false, debug = false, names = true, jsonOut = null;
   let mode = values.cutMode;
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -41,6 +41,7 @@ async function main(argv) {
       case '--out': outDir = argv[++i]; break;
       case '--dry-run': dryRun = true; break;
       case '--debug': debug = true; break;
+      case '--json': jsonOut = argv[++i]; break;
       case '--no-smart': settings.smart = false; break;
       case '--keyframe-cuts': settings.exact = false; mode = Cutter.KEYFRAMES_ONLY; break;
       case '--marker-cuts': mode = Cutter.EXACT_MARKER; break;
@@ -97,6 +98,7 @@ async function main(argv) {
       Plan.formatTime(s.end).padStart(9) + '  ' + Plan.formatLength(Plan.length(s)).padStart(7) + '  ' + s.name.padEnd(24) + ' ' + s.note);
     if (debug) console.log('      exact ' + ff.num(s.start) + ' → ' + ff.num(s.end));
   });
+  if (jsonOut) fs.writeFileSync(jsonOut, JSON.stringify(Plan.toJSON(r)));
   if (dryRun) return 0;
 
   const chosen = r.segments.filter((s) => s.include);

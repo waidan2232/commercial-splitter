@@ -1,7 +1,7 @@
 # docker compose up -d   →   http://localhost:8080
 services:
   commercial-splitter:
-    image: ghcr.io/OWNER/commercial-splitter:latest
+    image: ghcr.io/waidan2232/commercial-splitter:latest
     build: .
     container_name: commercial-splitter
     ports:
