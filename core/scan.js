@@ -3,6 +3,7 @@
 
 const ff = require('./ffmpeg');
 const Plan = require('./plan');
+const audio = require('./audio');
 
 const BLACK_RX = /black_start:\s*(-?[\d.]+)\s+black_end:\s*(-?[\d.]+)/;
 const SCENE_RX = /lavfi\.scd\.score:\s*([\d.]+),\s*lavfi\.scd\.time:\s*(-?[\d.]+)/;
@@ -215,13 +216,16 @@ async function analyze(file, settings, progress, signal) {
   const onAbort = () => inner.abort();
   if (signal) signal.addEventListener('abort', onAbort, { once: true });
   try {
-    const [, levels, events] = await Promise.all([
+    const [, levels, events, sound] = await Promise.all([
       scanKeyframes(info, (p) => { keyPart = p; update(); }, inner.signal),
       scanAudio(info, inner.signal),
       scanVideo(info, s, (p) => { scanPart = p; update(); }, inner.signal),
+      // Not essential: without it, joins without black are only found where the sound clearly stops.
+      audio.analyzeSound(info, inner.signal).catch((e) => { if (inner.signal.aborted) throw e; return null; }),
     ].map((p) => p.catch((e) => { inner.abort(); throw e; })));
     events.levels = levels;
     snapBlacks(info, events);
+    audio.measureCuts(sound, events.scenes);
     const result = { info, events };
     Plan.plan(result, s);
     return result;

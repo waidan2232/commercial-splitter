@@ -156,6 +156,26 @@ function runBinary(file, args, { signal } = {}) {
   });
 }
 
+/** Runs a tool and hands its stdout to onData as it arrives. Resolves with the exit code. */
+function runStream(file, args, onData, { signal } = {}) {
+  return new Promise((resolve, reject) => {
+    if (signal && signal.aborted) return reject(new Cancelled());
+    const p = spawn(file, args, { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'], env: spawnEnv(file) });
+    p.stdout.on('data', onData);
+    const abort = () => { try { p.kill('SIGKILL'); } catch (e) { /* gone */ } };
+    if (signal) signal.addEventListener('abort', abort, { once: true });
+    p.on('error', (e) => {
+      if (signal) signal.removeEventListener('abort', abort);
+      reject(e);
+    });
+    p.on('close', (code) => {
+      if (signal) signal.removeEventListener('abort', abort);
+      if (signal && signal.aborted) reject(new Cancelled());
+      else resolve(code == null ? -1 : code);
+    });
+  });
+}
+
 /** "ffmpeg version 6.1.1 …" → "6.1.1" ("" if unknown). */
 async function version() {
   if (!located.ffmpeg) return '';
@@ -172,7 +192,7 @@ async function version() {
 }
 
 module.exports = {
-  isWindows, located, addSearchDir, locate, num, parse, run, runBinary, version, Cancelled,
+  isWindows, located, addSearchDir, locate, num, parse, run, runBinary, runStream, version, Cancelled,
   get ffmpegPath() { return located.ffmpeg; },
   get ffprobePath() { return located.ffprobe; },
   tempDir: () => fs.mkdtempSync(path.join(os.tmpdir(), 'commercial-splitter-')),

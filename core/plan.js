@@ -160,13 +160,13 @@
   // ------------------------------------------------------------------ candidates
 
   function candidate(props) {
-    return Object.assign({ start: 0, end: 0, isBlack: false, quiet: 0, key: { pts: 0, dts: 0 } }, props);
+    return Object.assign({ start: 0, end: 0, isBlack: false, quiet: 0, key: { pts: 0, dts: 0 }, evidence: null }, props);
   }
   function mid(c) { return (c.start + c.end) / 2; }
   function silent(c) { return c.quiet > 0; }
 
   function describe(c) {
-    const sound = c.quiet === 2 ? ' + silence' : c.quiet === 1 ? ' + brief silence' : '';
+    const sound = c.quiet === 2 ? ' + silence' : c.quiet === 1 ? ' + brief silence' : !c.isBlack && c.evidence >= 0.8 ? ' + sound changes' : '';
     return (c.isBlack ? (c.quiet > 0 ? 'black' : 'fade to black') : 'picture cut') + sound;
   }
 
@@ -193,9 +193,28 @@
    * wins; a picture cut only splits a piece of odd length into typical lengths.
    */
   function breakScore(c, audioUseful) {
-    if (!c.isBlack) return -1.1;
+    if (!c.isBlack) return c.evidence != null ? CUT_BASE + Math.min(c.evidence, CUT_EVIDENCE_CAP) : -1.1;
     if (!audioUseful) return 0.6;
     return c.quiet === 2 ? 0.9 : c.quiet === 1 ? 0.4 : -1.0;
+  }
+
+  /**
+   * A picture cut where commercials meet without black: the sound usually dips for a moment and the soundtrack
+   * changes, while inside a commercial it carries on. With no such evidence a cut never splits a clip; with
+   * strong evidence it does when the lengths agree (two 15 s pieces rather than one odd 30.4 s one, …).
+   */
+  const CUT_BASE = -1.8, CUT_EVIDENCE_CAP = 2.0;
+
+  function cutEvidence(sc, quiet) {
+    if (typeof sc.change !== 'number' || typeof sc.dip !== 'number') return null;
+    let e = 0.06 * Math.max(0, sc.dip - 8) + 1.5 * Math.max(0, sc.change - 0.35);
+    if (quiet === 2) e += 0.5;
+    return e;
+  }
+
+  /** True for a place that is very likely where two commercials meet (shown with a star when splitting). */
+  function likelyBreak(c) {
+    return c.isBlack || c.quiet > 0 || (c.evidence != null && c.evidence >= 0.8);
   }
 
   /** True for lengths that look like a whole commercial (10, 15, 20, 30, 60 s…). */
@@ -258,14 +277,18 @@
         key = info.keyframes[k];
       }
       if (cuts.length > 0 && Math.abs(cuts[cuts.length - 1].start - key.pts) < 0.01) continue;
-      cuts.push(candidate({ start: key.pts, end: key.pts, key, quiet: quietness(ev, sc.time - 0.2, sc.time + 0.2, silence) }));
+      const quiet = quietness(ev, sc.time - 0.2, sc.time + 0.2, silence);
+      cuts.push(candidate({ start: key.pts, end: key.pts, key, quiet, evidence: hasLevels ? cutEvidence(sc, quiet) : null }));
     }
     r.splitOptions = sortByMid(blacks.concat(cuts));
 
     let chosen;
     if (!s.smart) chosen = blacks;
     else {
-      const considered = r.audioUsed ? sortByMid(blacks.concat(cuts.filter((c) => c.quiet === 2))) : blacks;
+      // Cuts whose sound was measured all take part (see cutEvidence); otherwise only clearly silent ones do.
+      const measured = cuts.filter((c) => c.evidence != null);
+      const considered = measured.length > 0 ? sortByMid(blacks.concat(measured))
+        : r.audioUsed ? sortByMid(blacks.concat(cuts.filter((c) => c.quiet === 2))) : blacks;
       chosen = chooseBreaks(considered, info.duration, r.audioUsed);
     }
     const chosenSet = new Set(chosen);
@@ -541,7 +564,7 @@
     LEVEL_STEP, TOO_SHORT,
     defaultDetectSettings, roundEven, hydrate, toJSON,
     fullyBlack, minLevel, quietness, silentStretch, silenceThreshold,
-    describe, mid, silent, lengthScore, typicalLength, chooseBreaks, plan, breakBounds, startAfter,
+    describe, mid, silent, likelyBreak, lengthScore, typicalLength, chooseBreaks, plan, breakBounds, startAfter,
     frameAtOrAfter, frameAtOrBefore, stepFrame, snapStart, lastKeyframeAtOrBefore, nearestKey, stepKey,
     applyMinLength, length, clone, merge, splitOptionsWithin, split, splitAt,
     formatTime, formatTimePrecise, formatLength,

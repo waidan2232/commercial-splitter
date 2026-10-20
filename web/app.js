@@ -499,7 +499,8 @@
   /** Plain words for what's at a possible split point. */
   function splitReason(c) {
     if (c.isBlack) return c.quiet === 2 ? 'Black screen and silence' : c.quiet === 1 ? 'Black screen, short silence' : 'Black screen (sound continues)';
-    return c.quiet === 2 ? 'Cut with silence' : c.quiet === 1 ? 'Cut with a short silence' : 'Cut (no black or silence)';
+    if (c.quiet > 0) return c.quiet === 2 ? 'Cut with silence' : 'Cut with a short silence';
+    return c.evidence >= 0.8 ? 'Cut where the sound changes' : 'Cut (no black or silence)';
   }
 
   /**
@@ -515,7 +516,7 @@
       if (!parts) return null;
       const first = Plan.length(parts[0]), second = Plan.length(parts[1]);
       // ★ = black or silence, and both halves would be typical commercial lengths: the likeliest place two commercials meet.
-      const likely = (c.isBlack || Plan.silent(c)) && Plan.typicalLength(first) && Plan.typicalLength(second);
+      const likely = Plan.likelyBreak(c) && Plan.typicalLength(first) && Plan.typicalLength(second);
       return { c, at: parts[1].start, first, second, likely };
     }).filter(Boolean);
     const hereBtn = h('button', { class: 'btn primary split-here', 'data-icon': 'split' }, 'Split here');

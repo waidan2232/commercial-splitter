@@ -84,8 +84,10 @@ high quality (H.264). *Exact frames, never re-encode*: copies only, and hides th
 with an MP4/MOV start marker, which some players and editors ignore. *Keyframes only*: copies only, but a clip can
 only start on a keyframe, so starts can be off by a second or two.
 
-**Good to know.** Commercials that cut straight into each other with no black frames in between are only split
-automatically when the sound and the lengths make it clear; otherwise use Split. Names come from text on screen, so a
+**Good to know.** Commercials that cut straight into each other, with no black frames in between, are found from
+the sound: at such a join it usually dips for a moment and the soundtrack changes, while inside a commercial it
+carries on across the picture cuts. Typical lengths (15, 30, 60 s) help decide. If two still end up in one clip, use
+Split — the ★ suggestions are the likeliest places. Names come from text on screen, so a
 commercial that never shows its brand as text stays "Commercial".
 
 ## Docker (web app)
