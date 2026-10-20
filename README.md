@@ -155,9 +155,9 @@ How it's put together:
 | `server/` | The back end both versions use: serves the interface and runs the engine |
 | `web/` | The interface (plain HTML, CSS and JavaScript) |
 | `desktop/` | The Electron shell for Windows, macOS and Linux |
-| `.github/workflows/` | Builds and tests everything; a `v*` tag publishes a release and the Docker image |
+| `.github/workflows/` | Builds and tests everything, publishes the Docker image, and a release for each new version |
 
-To publish a release: update `version` in `package.json`, then `git tag v6.0.1 && git push --tags`. GitHub Actions
+To publish a release: change `version` in `package.json` and push to `main` (or push a `v…` tag). GitHub Actions
 builds the installers for every system, tests them, attaches them to a new release and publishes the Docker image.
 
 ## Licenses

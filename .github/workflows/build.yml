@@ -1,7 +1,8 @@
 name: Build
 
-# Every push: tests, the desktop apps for Windows, macOS and Linux, and the Docker image.
-# A version tag (v6.0.0, …): the same, plus a GitHub release with the downloads and the image on ghcr.io.
+# Every push: tests, the desktop apps for Windows, macOS and Linux, and the Docker image (published on ghcr.io).
+# When main has a version in package.json that hasn't been released yet (or a v* tag is pushed), the downloads are
+# published as a GitHub release.
 
 on:
   push:
@@ -140,6 +141,9 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Version
+        id: pkg
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
       - uses: docker/metadata-action@v5
         id: meta
         with:
@@ -148,6 +152,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ steps.pkg.outputs.version }},enable={{is_default_branch}}
             type=sha
       - name: Build and publish (amd64 + arm64)
         if: github.event_name != 'pull_request'
@@ -160,17 +165,50 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    # A v* tag, or a push to main whose package.json version hasn't been released yet.
+    if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main')
     needs: [desktop, docker]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: downloads
-          merge-multiple: true
-      - name: Create the release
+      - uses: actions/checkout@v4
+      - name: Which version
+        id: version
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then tag="${GITHUB_REF_NAME}"; else tag="v$(node -p "require('./package.json').version")"; fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "Release $tag already exists."
+            echo "new=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "new=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/download-artifact@v4
+        if: steps.version.outputs.new == 'true'
+        with:
+          path: downloads
+          pattern: desktop-*
+          merge-multiple: true
+      - name: Create the release
+        if: steps.version.outputs.new == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
           ls -la downloads
-          gh release create "${GITHUB_REF_NAME}" downloads/* --repo "$GITHUB_REPOSITORY" --title "Commercial Splitter ${GITHUB_REF_NAME#v}" --generate-notes
+          cat > notes.md <<NOTES
+          ## Downloads
+
+          | System | File |
+          | --- | --- |
+          | Windows 10 / 11 | \`Commercial-Splitter-${TAG#v}-Windows-Setup.exe\` (installer) or \`…-win-x64.zip\` (no install) |
+          | macOS, Apple silicon | \`Commercial-Splitter-${TAG#v}-macOS-arm64.dmg\` |
+          | macOS, Intel | \`Commercial-Splitter-${TAG#v}-macOS-x64.dmg\` |
+          | Linux | \`…-linux-x86_64.AppImage\` or \`…-linux-amd64.deb\` |
+          | Docker (web app) | \`docker run -d -p 8080:8080 -v /path/to/videos:/videos ghcr.io/${GITHUB_REPOSITORY_OWNER}/commercial-splitter:${TAG#v}\` |
+
+          The first time you start it, Windows and macOS ask whether to open an app from an unknown developer — see the README.
+          NOTES
+          gh release create "$TAG" downloads/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Commercial Splitter ${TAG#v}" --notes-file notes.md --generate-notes
