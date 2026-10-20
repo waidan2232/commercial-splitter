@@ -258,6 +258,7 @@
 
   function onSelectionChanged() {
     const seg = list.selectedItem;
+    if (splitPanel && splitPanel.seg !== seg) closeSplitPanel();
     editor.selected = seg;
     overview.selected = seg;
     overview.invalidate();
@@ -283,6 +284,7 @@
 
   function setPlayhead(t) {
     playhead = t;
+    if (splitPanel) setTimeout(updateSplitPanel, 0);
     overview.playhead = t;
     editor.playhead = t;
     const seg = list.selectedItem;
@@ -377,6 +379,7 @@
 
   function undo() {
     if (undoStack.length === 0 || busy) return;
+    closeSplitPanel();
     const index = list.selectedIndex;
     segments = undoStack.pop();
     showSegments();
@@ -385,6 +388,7 @@
   }
 
   function afterEdit(seg) {
+    closeSplitPanel();
     list.refreshItem(seg);
     overview.invalidate();
     editor.invalidate();
@@ -488,28 +492,107 @@
     setStatus('Merged into one ' + len(merged).toFixed(1) + ' s clip.');
   }
 
-  function showSplitMenu() {
+  // ---------------------------------------------------------------- the Split panel
+
+  let splitPanel = null; // { el, seg, options, chosen }
+
+  /** Plain words for what's at a possible split point. */
+  function splitReason(c) {
+    if (c.isBlack) return c.quiet === 2 ? 'Black screen and silence' : c.quiet === 1 ? 'Black screen, short silence' : 'Black screen (sound continues)';
+    return c.quiet === 2 ? 'Cut with silence' : c.quiet === 1 ? 'Cut with a short silence' : 'Cut (no black or silence)';
+  }
+
+  /**
+   * Opens the Split panel for the selected clip: go to the first frame of the second commercial (or click a
+   * suggestion, which only moves the video there), then click "Split here".
+   */
+  function openSplitPanel() {
     const seg = list.selectedItem;
     if (busy || !seg || !current) return;
-    const inside = playhead > seg.start + 0.3 && playhead < seg.end - 0.3;
-    const items = [{
-      text: 'Split at the play position (' + Plan.formatTimePrecise(playhead) + ')', key: MOD + 'B',
-      bold: true, disabled: !inside, action: splitAtPlayhead,
-    }];
-    const options = Plan.splitOptionsWithin(current, seg).slice(0, 40);
-    if (options.length > 0) items.push('-');
-    for (const c of options) {
-      const first = c.start - seg.start, second = seg.end - c.end;
+    closeSplitPanel();
+    const options = Plan.splitOptionsWithin(current, seg).slice(0, 60).map((c) => {
+      const parts = Plan.split(current, seg, c);
+      if (!parts) return null;
+      const first = Plan.length(parts[0]), second = Plan.length(parts[1]);
       // ★ = black or silence, and both halves would be typical commercial lengths: the likeliest place two commercials meet.
       const likely = (c.isBlack || Plan.silent(c)) && Plan.typicalLength(first) && Plan.typicalLength(second);
-      items.push({
-        text: (likely ? '★ ' : '') + Plan.formatTime(c.start) + '  —  ' + Plan.describe(c) + '   (' + first.toFixed(1) + ' s + ' + second.toFixed(1) + ' s)',
-        bold: likely,
-        action: () => splitSegment(seg, Plan.split(current, seg, c)),
-        hover: () => { if (!playing) { setPlayhead(c.start); player.showFrame(Plan.frameAtOrAfter(current.info, c.end)); } },
+      return { c, at: parts[1].start, first, second, likely };
+    }).filter(Boolean);
+    const hereBtn = h('button', { class: 'btn primary split-here', 'data-icon': 'split' }, 'Split here');
+    const hereInfo = h('div', { class: 'split-here-info' });
+    const listEl = h('div', { class: 'split-options' });
+    const closeBtn = h('button', { class: 'btn subtle small icon-only split-close', title: 'Close (Esc)', html: '&#x2715;' });
+    const el = h('div', { class: 'split-panel', role: 'dialog', 'aria-label': 'Split this clip in two' },
+      h('div', { class: 'split-head' }, h('div', { class: 'split-title', text: 'Split this clip in two' }), closeBtn),
+      h('div', { class: 'split-help', text: 'Show the first frame of the second commercial — play, step with ← →, or click a suggestion below — then click Split here.' }),
+      hereBtn, hereInfo,
+      listEl);
+    const makeRow = (o) => {
+      const row = h('div', { class: 'split-option' + (o.likely ? ' likely' : '') },
+        h('span', { class: 'split-star', text: o.likely ? '\u2605' : '' }),
+        h('span', { class: 'split-time', text: Plan.formatTimePrecise(o.at) }),
+        h('span', { class: 'split-reason', text: splitReason(o.c) }),
+        h('span', { class: 'split-lengths', text: o.first.toFixed(1) + ' + ' + o.second.toFixed(1) + ' s' }));
+      // Clicking only shows the spot; nothing is split until "Split here".
+      row.addEventListener('click', () => {
+        splitPanel.chosen = o;
+        seek(o.at);
       });
+      return { row, o };
+    };
+    // The likeliest places first, then everything else in time order.
+    const best = options.filter((o) => o.likely), rest = options.filter((o) => !o.likely);
+    const rows = [];
+    if (best.length) {
+      listEl.append(h('div', { class: 'split-heading', text: 'MOST LIKELY' }));
+      for (const o of best) { const r = makeRow(o); rows.push(r); listEl.append(r.row); }
     }
-    UI.menu(items, el.splitBtn);
+    if (rest.length) {
+      listEl.append(h('div', { class: 'split-heading', text: best.length ? 'OTHER PLACES' : 'POSSIBLE PLACES' }));
+      for (const o of rest) { const r = makeRow(o); rows.push(r); listEl.append(r.row); }
+    }
+    if (!options.length) listEl.append(h('div', { class: 'split-none', text: 'No black screens or picture cuts were found in this clip. Use the player to find the spot.' }));
+    hereBtn.addEventListener('click', splitFromPanel);
+    closeBtn.addEventListener('click', closeSplitPanel);
+    el.addEventListener('click', (e) => e.stopPropagation());
+    el.addEventListener('mousedown', (e) => e.stopPropagation());
+    $('videoBox').append(el);
+    UI.applyIcons(el);
+    splitPanel = { el, seg, options, rows, hereBtn, hereInfo, chosen: null };
+    editor.markers = options.map((o) => ({ t: o.at, likely: o.likely }));
+    editor.invalidate();
+    updateSplitPanel();
+  }
+
+  function closeSplitPanel() {
+    if (!splitPanel) return;
+    splitPanel.el.remove();
+    splitPanel = null;
+    editor.markers = [];
+    editor.invalidate();
+  }
+
+  /** Keeps the panel in step with the play position. */
+  function updateSplitPanel() {
+    if (!splitPanel) return;
+    const seg = splitPanel.seg;
+    const f = current ? Plan.frameAtOrAfter(current.info, playhead) : playhead;
+    const inside = f > seg.start + 0.3 && f < seg.end - 0.3;
+    if (splitPanel.chosen && Math.abs(splitPanel.chosen.at - f) > 0.001) splitPanel.chosen = null;
+    splitPanel.hereBtn.disabled = !inside || busy;
+    UI.setLabel(splitPanel.hereBtn, inside ? 'Split here at ' + Plan.formatTimePrecise(f) : 'Split here');
+    splitPanel.hereInfo.textContent = inside
+      ? 'First part ' + (f - seg.start).toFixed(1) + ' s, second part ' + (seg.end - f).toFixed(1) + ' s. The frame on screen starts the second part.'
+      : 'Move the play position inside this clip first.';
+    for (const r of splitPanel.rows) r.row.classList.toggle('current', Math.abs(r.o.at - f) < 0.001);
+  }
+
+  function splitFromPanel() {
+    if (!splitPanel) return;
+    const seg = splitPanel.seg, chosen = splitPanel.chosen;
+    closeSplitPanel();
+    if (chosen) splitSegment(seg, Plan.split(current, seg, chosen.c));
+    else splitAtPlayhead();
   }
 
   function splitAtPlayhead() {
@@ -571,7 +654,7 @@
       { text: 'Rename', key: 'F2', action: () => list.beginRename(list.selectedIndex) },
       '-',
       { text: idx.length > 1 ? 'Merge selected clips' : 'Merge with next clip', key: MOD + 'M', disabled: el.mergeBtn.disabled, action: mergeSelected },
-      { text: 'Split…', action: () => setTimeout(showSplitMenu, 0) },
+      { text: 'Split…', action: () => setTimeout(openSplitPanel, 0) },
       '-',
       { text: 'Tick', action: () => { for (const i of idx) segments[i].include = true; list.refresh(); overview.invalidate(); updateCount(); } },
       { text: 'Untick', action: () => { for (const i of idx) segments[i].include = false; list.refresh(); overview.invalidate(); updateCount(); } },
@@ -1096,6 +1179,7 @@
     if (mod && !e.altKey && (e.key === 'o' || e.key === 'O')) { e.preventDefault(); openDialog(); return; }
     if (mod && !e.altKey && (e.key === 's' || e.key === 'S')) { e.preventDefault(); saveClips(); return; }
     if (typing || busy) return;
+    if (e.key === 'Escape' && splitPanel) { closeSplitPanel(); e.preventDefault(); return; }
     let handled = true;
     if (mod && (e.key === 'b' || e.key === 'B')) splitAtPlayhead();
     else if (mod && (e.key === 'm' || e.key === 'M')) mergeSelected();
@@ -1205,7 +1289,7 @@
     el.endBack.onclick = (e) => nudgeEnd(-1, e.shiftKey);
     el.endForward.onclick = (e) => nudgeEnd(+1, e.shiftKey);
     el.endHere.onclick = endAtPlayhead;
-    el.splitBtn.onclick = showSplitMenu;
+    el.splitBtn.onclick = () => (splitPanel ? closeSplitPanel() : openSplitPanel());
     el.mergeBtn.onclick = mergeSelected;
     el.renameBtn.onclick = () => { if (list.selectedIndex >= 0) list.beginRename(list.selectedIndex); };
     el.undoBtn.onclick = undo;

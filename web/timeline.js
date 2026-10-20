@@ -6,7 +6,7 @@
   const C = {
     window: '#18181b', surface: '#202024', surfaceHigh: '#2a2a2f', border: '#3a3a40',
     text: '#f0f0f3', textDim: '#a5a5af', textFaint: '#696973',
-    accent: '#4c8dff', accentPressed: '#3a75db', accentAlt: '#2ec4b6', danger: '#f06262',
+    accent: '#4c8dff', accentPressed: '#3a75db', accentAlt: '#2ec4b6', danger: '#f06262', warning: '#f0b24c',
   };
   const FONT = '12px Inter, system-ui, sans-serif';
 
@@ -178,6 +178,8 @@
       this.onStartChanged = () => {};
       this.onEndChanged = () => {};
       this.nameOf = (s) => s.name || 'Commercial';
+      /** Suggested split points to show (while the Split panel is open): [{ t, likely }]. */
+      this.markers = [];
 
       canvas.addEventListener('pointerdown', (e) => this.down(e));
       canvas.addEventListener('pointermove', (e) => this.move(e));
@@ -270,6 +272,23 @@
         ctx.fillText(fit(ctx, name, avail), sx + 8, track.y + track.h / 2 + 0.5);
         ctx.restore();
         ctx.textBaseline = 'top';
+      }
+
+      // suggested split points
+      for (const m of this.markers) {
+        if (m.t < this.v0 || m.t > this.v1) continue;
+        const x = Math.round(this.X(m.t)) + 0.5;
+        const c = m.likely ? C.warning : C.textDim;
+        ctx.setLineDash([3, 3]);
+        line(ctx, c, x, track.y, x, track.y + track.h, 1);
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(x - 4, track.y);
+        ctx.lineTo(x + 4, track.y);
+        ctx.lineTo(x, track.y + 6);
+        ctx.closePath();
+        ctx.fillStyle = c;
+        ctx.fill();
       }
 
       // keyframes (where a clip can start with keyframe-only cuts)

@@ -439,3 +439,37 @@ canvas { display: block; }
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
   white-space: pre-line;
 }
+
+/* ---------------------------------------------------------------- split panel */
+
+.split-panel {
+  position: absolute; top: 10px; right: 10px; z-index: 5;
+  width: 360px; max-width: calc(100% - 20px); max-height: calc(100% - 20px);
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 12px 12px 10px;
+  background: rgba(24, 24, 27, 0.96);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  cursor: default;
+}
+.split-head { display: flex; align-items: center; }
+.split-title { font-weight: 700; flex: 1; }
+.split-close { font-size: 13px; }
+.split-help { color: var(--text-dim); font-size: var(--fs-small); line-height: 1.45; }
+.split-here { width: 100%; height: 34px; }
+.split-here-info { color: var(--text-dim); font-size: var(--fs-small); line-height: 1.4; margin-top: -2px; }
+.split-heading { font-size: 11px; font-weight: 700; letter-spacing: 0.6px; color: var(--text-dim); margin: 8px 6px 2px; }
+.split-options { overflow-y: auto; min-height: 0; flex: 1 1 auto; margin: 0 -4px; }
+.split-option {
+  display: grid; grid-template-columns: 14px 64px 1fr auto; gap: 8px; align-items: center;
+  padding: 6px 6px; border-radius: 6px; cursor: pointer; font-size: var(--fs-small);
+  font-variant-numeric: tabular-nums;
+}
+.split-option:hover { background: var(--surface-high); }
+.split-option.current { background: var(--selection); }
+.split-option.likely { font-weight: 600; }
+.split-star { color: var(--warning); }
+.split-reason { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.split-lengths { color: var(--text-dim); white-space: nowrap; }
+.split-none { color: var(--text-faint); font-size: var(--fs-small); padding: 4px 6px; }

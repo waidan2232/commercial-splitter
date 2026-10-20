@@ -52,24 +52,49 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Get FFmpeg for ${{ matrix.platform }}-${{ matrix.arch }}
-        run: node scripts/fetch-ffmpeg.js ${{ matrix.platform }} ${{ matrix.arch }}
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p logs
+          node scripts/fetch-ffmpeg.js ${{ matrix.platform }} ${{ matrix.arch }} 2>&1 | tee logs/ffmpeg.log
       - name: Build
-        run: npx electron-builder ${{ matrix.flags }} --publish never -c.extraMetadata.homepage=https://github.com/${{ github.repository }}
+        shell: bash
+        run: |
+          set -o pipefail
+          npx electron-builder ${{ matrix.flags }} --publish never -c.extraMetadata.homepage=https://github.com/${{ github.repository }} 2>&1 | tee logs/build.log
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - name: Smoke test (Linux)
         if: matrix.platform == 'linux'
-        run: xvfb-run -a ${{ matrix.unpacked }}/commercial-splitter --smoke-test --no-sandbox
+        shell: bash
+        run: |
+          set -o pipefail
+          xvfb-run -a ${{ matrix.unpacked }}/commercial-splitter --smoke-test --no-sandbox 2>&1 | tee logs/smoke.log
       - name: Smoke test (Windows)
         if: matrix.platform == 'win32'
         shell: bash
-        run: ./${{ matrix.unpacked }}/commercial-splitter.exe --smoke-test
+        run: |
+          set -o pipefail
+          ./${{ matrix.unpacked }}/commercial-splitter.exe --smoke-test 2>&1 | tee logs/smoke.log
       - name: Smoke test (macOS)
         if: matrix.platform == 'darwin'
+        shell: bash
         run: |
+          set -o pipefail
           app=$(ls -d ${{ matrix.unpacked }}/*.app | head -1)
           bin=$(ls "$app/Contents/MacOS/" | head -1)
-          if [ "${{ matrix.arch }}" = "x64" ]; then arch -x86_64 "$app/Contents/MacOS/$bin" --smoke-test; else "$app/Contents/MacOS/$bin" --smoke-test; fi
+          if [ "${{ matrix.arch }}" = "x64" ]; then run=(arch -x86_64 "$app/Contents/MacOS/$bin"); else run=("$app/Contents/MacOS/$bin"); fi
+          "${run[@]}" --smoke-test 2>&1 | tee logs/smoke.log
+      - name: Report what went wrong
+        if: failure()
+        shell: bash
+        run: |
+          # The end of each log as an annotation, so it shows on the run's summary page.
+          for f in logs/*.log; do
+            [ -f "$f" ] || continue
+            msg=$(tail -n 40 "$f" | sed -e 's/%/%25/g' -e 's/\r//g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=$(basename "$f")::$msg"
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ matrix.platform }}-${{ matrix.arch }}
