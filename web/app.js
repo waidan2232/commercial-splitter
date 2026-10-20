@@ -615,12 +615,15 @@
     }
     pushUndo();
     parts.forEach(withUid);
+    // The first part is the commercial the clip was named after; only the new second part needs a name.
+    parts[0].name = seg.name;
+    parts[0].nameEdited = seg.nameEdited;
     segments.splice(index, 1, ...parts);
     Plan.applyMinLength(segments, settings.minClip);
     showSegments();
     list.select(index + 1);
     setStatus('Split into ' + len(parts[0]).toFixed(1) + ' s + ' + len(parts[1]).toFixed(1) + ' s.');
-    startNaming(parts.filter((p) => p.include));
+    startNaming(parts.filter((p) => p.include && !p.name));
   }
 
   function cleanName(text) {
@@ -1067,8 +1070,8 @@
       row('Smart detection', 'Use the sound too: real breaks are black AND silent, so fades to black inside a commercial are ignored. Also prefers typical lengths (15, 30, 60 s).', smart.wrap),
       h('div', { class: 'settings-section', text: 'CUTTING' }),
       row('How clips are cut',
-        'Recommended: every clip starts and ends on the exact frame and plays correctly everywhere. A clip that starts on a keyframe is copied untouched; one that starts between keyframes is re-encoded at high quality (H.264).\n' +
-        '“Never re-encode”: copies only, using a start marker some players and editors ignore (they show the end of the previous commercial or a frozen frame). “Keyframes only”: copies only, but starts can be off by a second or two.', cut),
+        'Recommended: every clip starts and ends on the exact frame and plays correctly everywhere; clips that start between keyframes are re-encoded at high quality (H.264).\n' +
+        '\u201cNever re-encode\u201d options copy the video untouched, but some players then show extra frames, or starts can be a second or two off.', cut),
       h('div', { class: 'settings-section', text: 'NAMING AND SAVING' }),
       row('Name clips automatically', 'Reads the brand or website shown in the commercial, and listens for it in what\u2019s said (\u201c\u2026at Red Lobster\u201d), then names the file after it.', names.wrap),
       row(desktop ? 'Open the folder when done' : 'Offer downloads when done', desktop ? 'Shows the saved clips in your file manager.' : 'Lists the saved clips so you can download them to this computer.', open.wrap));

@@ -1,7 +1,7 @@
 {
   "name": "commercial-splitter",
   "productName": "Commercial Splitter",
-  "version": "6.0.0",
+  "version": "6.0.1",
   "description": "Splits a commercial compilation into one file per commercial, at the black frames between them.",
   "license": "MIT",
   "private": true,

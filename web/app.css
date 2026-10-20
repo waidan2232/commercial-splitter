@@ -257,9 +257,11 @@ button, input, select { font: inherit; color: inherit; }
 
 canvas { display: block; }
 .editor { height: 118px; width: 100%; flex: none; cursor: pointer; touch-action: none; }
-.edit-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 4px; padding-top: 4px; flex: none; }
-.bar-label { font-size: var(--fs-small); color: var(--text-dim); min-width: 82px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.bar-spacer { width: 8px; }
+.edit-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 3px; padding-top: 4px; flex: none; }
+.edit-bar .btn.small { padding: 0 8px; }
+.edit-bar .btn.small.icon-only { padding: 0 6px; }
+.bar-label { font-size: var(--fs-small); color: var(--text-dim); min-width: 78px; margin-right: 2px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bar-spacer { width: 6px; }
 
 /* ---------------------------------------------------------------- empty state */
 
@@ -374,7 +376,7 @@ canvas { display: block; }
 
 .settings-section { color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: 0.6px; margin: 16px 0 2px; }
 .settings-section:first-child { margin-top: 4px; }
-.setting { display: flex; align-items: center; gap: 18px; padding: 8px 0; }
+.setting { display: flex; align-items: center; gap: 18px; padding: 6px 0; }
 .setting-text { flex: 1; min-width: 0; }
 .setting-title { font-weight: 500; }
 .setting-help { font-size: var(--fs-small); color: var(--text-dim); margin-top: 2px; line-height: 1.45; }
@@ -444,7 +446,7 @@ canvas { display: block; }
 
 .split-panel {
   position: absolute; top: 10px; right: 10px; z-index: 5;
-  width: 360px; max-width: calc(100% - 20px); max-height: calc(100% - 20px);
+  width: 400px; max-width: calc(100% - 20px); max-height: calc(100% - 20px);
   display: flex; flex-direction: column; gap: 8px;
   padding: 12px 12px 10px;
   background: rgba(24, 24, 27, 0.96);
@@ -462,7 +464,7 @@ canvas { display: block; }
 .split-heading { font-size: 11px; font-weight: 700; letter-spacing: 0.6px; color: var(--text-dim); margin: 8px 6px 2px; }
 .split-options { overflow-y: auto; min-height: 0; flex: 1 1 auto; margin: 0 -4px; }
 .split-option {
-  display: grid; grid-template-columns: 14px 64px 1fr auto; gap: 8px; align-items: center;
+  display: grid; grid-template-columns: 12px 58px 1fr auto; gap: 8px; align-items: center;
   padding: 6px 6px; border-radius: 6px; cursor: pointer; font-size: var(--fs-small);
   font-variant-numeric: tabular-nums;
 }
