@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+<rect width="256" height="256" rx="51.2" fill="#005FB8"/>
+<rect x="20.48" y="66.56" width="215.04" height="122.88" fill="#FAFAFA"/>
+<g fill="#005FB8"><rect x="33.28" y="75.52" width="12.8" height="10.24"/><rect x="33.28" y="170.24" width="12.8" height="10.24"/><rect x="64.00" y="75.52" width="12.8" height="10.24"/><rect x="64.00" y="170.24" width="12.8" height="10.24"/><rect x="94.72" y="75.52" width="12.8" height="10.24"/><rect x="94.72" y="170.24" width="12.8" height="10.24"/><rect x="125.44" y="75.52" width="12.8" height="10.24"/><rect x="125.44" y="170.24" width="12.8" height="10.24"/><rect x="156.16" y="75.52" width="12.8" height="10.24"/><rect x="156.16" y="170.24" width="12.8" height="10.24"/><rect x="186.88" y="75.52" width="12.8" height="10.24"/><rect x="186.88" y="170.24" width="12.8" height="10.24"/><rect x="217.60" y="75.52" width="12.8" height="10.24"/><rect x="217.60" y="170.24" width="12.8" height="10.24"/></g>
+<rect x="28.16" y="94.72" width="56.32" height="66.56" fill="#FFB300"/>
+<rect x="99.84" y="94.72" width="56.32" height="66.56" fill="#E53935"/>
+<rect x="171.52" y="94.72" width="56.32" height="66.56" fill="#43A047"/>
+<g fill="#141414"><rect x="85.76" y="66.56" width="10.24" height="122.88"/><rect x="157.44" y="66.56" width="10.24" height="122.88"/></g>
+</svg>

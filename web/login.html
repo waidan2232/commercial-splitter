@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Commercial Splitter</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="app.css">
+<style>
+  body { display: flex; align-items: center; justify-content: center; padding: 16px; user-select: auto; }
+  form { width: 100%; max-width: 340px; display: flex; flex-direction: column; gap: 14px; align-items: stretch; text-align: center; }
+  img { width: 56px; height: 56px; margin: 0 auto 4px; }
+  h1 { font-size: 19px; margin: 0; }
+  p { margin: 0; color: var(--text-dim); }
+  .wrong { color: var(--danger); }
+  .field { flex: none; }
+  .btn { height: 36px; }
+</style>
+</head>
+<body>
+<form method="post" action="login">
+  <img src="icon.svg" alt="">
+  <h1>Commercial Splitter</h1>
+  <p id="msg">Enter the password to continue.</p>
+  <input class="field" type="password" name="password" placeholder="Password" autofocus autocomplete="current-password">
+  <button class="btn primary" type="submit">Sign in</button>
+</form>
+<script>
+  if (/wrong=1/.test(location.search)) {
+    const m = document.getElementById('msg');
+    m.textContent = 'That password isn’t right. Try again.';
+    m.className = 'wrong';
+  }
+</script>
+</body>
+</html>

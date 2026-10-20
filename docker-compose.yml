@@ -1,0 +1,20 @@
+# docker compose up -d   →   http://localhost:8080
+services:
+  commercial-splitter:
+    image: ghcr.io/OWNER/commercial-splitter:latest
+    build: .
+    container_name: commercial-splitter
+    ports:
+      - "8080:8080"
+    volumes:
+      # Your videos. Clips are saved next to each video, in "<video name> - Commercials".
+      - ./videos:/videos
+      # Settings.
+      - ./config:/config
+    environment:
+      # Ask for a password before anyone can use the app (recommended if others can reach this port).
+      # - CS_PASSWORD=choose-a-password
+      # Run as your own user so saved clips belong to you (see `id -u` and `id -g`).
+      - TZ=UTC
+    # user: "1000:1000"
+    restart: unless-stopped

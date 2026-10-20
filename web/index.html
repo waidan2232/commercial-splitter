@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Commercial Splitter</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div id="app">
+  <header class="header">
+    <img class="logo" src="icon.svg" alt="">
+    <div class="titles">
+      <div class="title">Commercial Splitter</div>
+      <div class="file-label" id="fileLabel">No video open</div>
+    </div>
+    <div class="grow"></div>
+    <div class="header-buttons">
+      <button class="btn" id="openBtn" data-icon="open" title="Open a commercial compilation (Ctrl+O). You can also drag videos onto the window.">Open video</button>
+      <button class="btn subtle" id="settingsBtn" data-icon="settings" title="Settings">Settings</button>
+      <button class="btn subtle" id="helpBtn" data-icon="help" title="How it works and keyboard shortcuts">Help</button>
+    </div>
+  </header>
+
+  <main class="body" id="body">
+    <section class="list-pane" id="listPane">
+      <div class="list-top">
+        <div class="heading" id="countLabel">COMMERCIALS</div>
+        <div class="grow"></div>
+        <button class="btn subtle small" id="tickAllBtn">Tick all</button>
+        <button class="btn subtle small" id="tickNoneBtn">Untick all</button>
+      </div>
+      <div class="clip-list" id="clipList" tabindex="0" role="listbox" aria-multiselectable="true"></div>
+    </section>
+    <div class="splitter" id="splitter" title="Drag to resize"></div>
+    <section class="player-pane">
+      <div class="video-box" id="videoBox">
+        <video id="video" preload="auto" playsinline disablepictureinpicture></video>
+        <div class="video-message" id="videoMessage"></div>
+        <div class="video-play" id="videoPlay"></div>
+      </div>
+      <div class="transport">
+        <button class="btn subtle icon-only" id="prevBtn" data-icon="prev" title="Previous clip (Up)"></button>
+        <button class="btn primary play" id="playBtn" data-icon="play" title="Play / pause the selected clip (Space)">Play</button>
+        <button class="btn subtle icon-only" id="nextBtn" data-icon="next" title="Next clip (Down)"></button>
+        <div class="time-label" id="timeLabel"></div>
+        <div class="grow"></div>
+        <div class="clip-label" id="clipLabel"></div>
+      </div>
+      <canvas class="editor" id="editor"></canvas>
+      <div class="edit-bar">
+        <span class="bar-label" id="startLabel">Start</span>
+        <button class="btn small icon-only" id="startBack" data-icon="left" title="Start one frame earlier (hold Shift: 1 second)"></button>
+        <button class="btn small icon-only" id="startForward" data-icon="right" title="Start one frame later (hold Shift: 1 second)"></button>
+        <button class="btn small" id="startHere" title="Start the clip with the frame on screen ([)">Start here&nbsp;&nbsp;[</button>
+        <span class="bar-spacer"></span>
+        <span class="bar-label" id="endLabel">End</span>
+        <button class="btn small icon-only" id="endBack" data-icon="left" title="End one frame earlier (hold Shift: 1 second)"></button>
+        <button class="btn small icon-only" id="endForward" data-icon="right" title="End one frame later (hold Shift: 1 second)"></button>
+        <button class="btn small" id="endHere" title="End the clip after the frame on screen (])">End here&nbsp;&nbsp;]</button>
+        <span class="bar-spacer"></span>
+        <button class="btn small" id="splitBtn" data-icon="split" title="Split this clip in two — at the play position (Ctrl+B) or at a suggested point">Split</button>
+        <button class="btn small" id="mergeBtn" data-icon="merge" title="Join the selected clips, or this clip and the next one (Ctrl+M)">Merge</button>
+        <button class="btn small" id="renameBtn" data-icon="rename" title="Rename (F2)">Rename</button>
+        <button class="btn small subtle" id="undoBtn" data-icon="undo" title="Undo the last change (Ctrl+Z)">Undo</button>
+      </div>
+    </section>
+
+    <div class="empty" id="empty">
+      <div class="empty-frame">
+        <div class="empty-icon" data-icon="film"></div>
+        <div class="empty-title">Drop a commercial compilation here</div>
+        <div class="empty-sub">It finds the breaks between the commercials, lets you check and adjust every clip,<br>and saves each one as its own file.</div>
+        <button class="btn primary big" id="emptyOpenBtn" data-icon="open">Open video</button>
+      </div>
+    </div>
+  </main>
+
+  <div class="overview-host"><canvas class="overview" id="overview"></canvas></div>
+
+  <footer class="footer">
+    <div class="status-row">
+      <div class="status" id="status"></div>
+      <div class="progress" id="progress"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+    <div class="save-row">
+      <span class="save-to">Save to</span>
+      <input class="field" id="outputField" spellcheck="false" autocomplete="off">
+      <button class="btn" id="browseBtn" data-icon="folder">Browse</button>
+      <button class="btn" id="typeBtn"></button>
+      <button class="btn" id="cancelBtn" hidden>Cancel</button>
+      <button class="btn primary save" id="saveBtn" data-icon="save" title="Save every ticked clip as its own file (Ctrl+S)">Save commercials</button>
+    </div>
+  </footer>
+</div>
+<div class="drop-overlay" id="dropOverlay"><div>Drop to open</div></div>
+<div id="layer"></div>
+
+<script src="core/plan.js"></script>
+<script src="icons.js"></script>
+<script src="ui.js"></script>
+<script src="cliplist.js"></script>
+<script src="timeline.js"></script>
+<script src="player.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

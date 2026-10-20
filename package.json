@@ -1,0 +1,106 @@
+{
+  "name": "commercial-splitter",
+  "productName": "Commercial Splitter",
+  "version": "6.0.0",
+  "description": "Splits a commercial compilation into one file per commercial, at the black frames between them.",
+  "license": "MIT",
+  "private": true,
+  "main": "desktop/main.js",
+  "bin": {
+    "commercial-splitter": "cli.js"
+  },
+  "scripts": {
+    "start": "electron .",
+    "web": "node server/index.js",
+    "cli": "node cli.js",
+    "test": "node --test \"test/*.test.js\"",
+    "fetch-ffmpeg": "node scripts/fetch-ffmpeg.js",
+    "dist": "electron-builder --publish never"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "5.3.0",
+    "@tesseract.js-data/eng": "1.0.0",
+    "tesseract.js": "7.0.0"
+  },
+  "devDependencies": {
+    "electron": "44.5.1",
+    "electron-builder": "26.15.3"
+  },
+  "author": {
+    "name": "Commercial Splitter contributors"
+  },
+  "build": {
+    "appId": "io.github.commercialsplitter",
+    "productName": "Commercial Splitter",
+    "executableName": "commercial-splitter",
+    "artifactName": "Commercial-Splitter-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "asar": false,
+    "files": [
+      "core/**",
+      "server/**",
+      "web/**",
+      "desktop/**",
+      "build/icon.png",
+      "cli.js",
+      "package.json",
+      "LICENSE",
+      "!**/*.map"
+    ],
+    "extraResources": [
+      {
+        "from": "vendor/ffmpeg/${platform}-${arch}",
+        "to": "ffmpeg",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Commercial-Splitter-${version}-Windows-Setup.${ext}"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.video",
+      "icon": "build/icon.png",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "artifactName": "Commercial-Splitter-${version}-macOS-${arch}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "AudioVideo",
+      "icon": "build/icon.png",
+      "maintainer": "Commercial Splitter contributors",
+      "synopsis": "Split commercial compilations into one file per commercial",
+      "executableArgs": [
+        "--no-sandbox"
+      ]
+    }
+  }
+}

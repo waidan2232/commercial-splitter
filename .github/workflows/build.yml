@@ -1,0 +1,146 @@
+name: Build
+
+# Every push: tests, the desktop apps for Windows, macOS and Linux, and the Docker image.
+# A version tag (v6.0.0, …): the same, plus a GitHub release with the downloads and the image on ghcr.io.
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - run: npm test
+
+  desktop:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, platform: win32, arch: x64, flags: --win --x64, unpacked: dist/win-unpacked }
+          - { os: macos-latest, platform: darwin, arch: arm64, flags: --mac --arm64, unpacked: dist/mac-arm64 }
+          - { os: macos-latest, platform: darwin, arch: x64, flags: --mac --x64, unpacked: dist/mac }
+          - { os: ubuntu-latest, platform: linux, arch: x64, flags: --linux --x64, unpacked: dist/linux-unpacked }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Get FFmpeg for ${{ matrix.platform }}-${{ matrix.arch }}
+        run: node scripts/fetch-ffmpeg.js ${{ matrix.platform }} ${{ matrix.arch }}
+      - name: Build
+        run: npx electron-builder ${{ matrix.flags }} --publish never -c.extraMetadata.homepage=https://github.com/${{ github.repository }}
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Smoke test (Linux)
+        if: matrix.platform == 'linux'
+        run: xvfb-run -a ${{ matrix.unpacked }}/commercial-splitter --smoke-test --no-sandbox
+      - name: Smoke test (Windows)
+        if: matrix.platform == 'win32'
+        shell: bash
+        run: ./${{ matrix.unpacked }}/commercial-splitter.exe --smoke-test
+      - name: Smoke test (macOS)
+        if: matrix.platform == 'darwin'
+        run: |
+          app=$(ls -d ${{ matrix.unpacked }}/*.app | head -1)
+          bin=$(ls "$app/Contents/MacOS/" | head -1)
+          if [ "${{ matrix.arch }}" = "x64" ]; then arch -x86_64 "$app/Contents/MacOS/$bin" --smoke-test; else "$app/Contents/MacOS/$bin" --smoke-test; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            dist/*.exe
+            dist/*.zip
+            dist/*.dmg
+            dist/*.AppImage
+            dist/*.deb
+          if-no-files-found: error
+
+  docker:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Build for testing
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: commercial-splitter:test
+      - name: Smoke test
+        run: |
+          mkdir -p videos && chmod 777 videos
+          ffmpeg_cmd="ffmpeg -v error -f lavfi -i testsrc2=size=320x240:rate=30:duration=8 -f lavfi -i sine=duration=8 -c:v libx264 -c:a aac -shortest /videos/test.mp4"
+          docker run --rm -v "$PWD/videos:/videos" --entrypoint sh commercial-splitter:test -c "$ffmpeg_cmd"
+          docker run -d --name cs -p 8080:8080 -v "$PWD/videos:/videos" commercial-splitter:test
+          for i in $(seq 1 30); do curl -sf localhost:8080/api/info && break; sleep 1; done
+          curl -sf localhost:8080/api/info | grep '"found":true'
+          curl -sf -X POST -H 'x-cs: 1' localhost:8080/api/analyze -d '{"path":"/videos/test.mp4"}' | tail -1 | grep '"type":"done"'
+          docker logs cs
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/commercial-splitter
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha
+      - name: Build and publish (amd64 + arm64)
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [desktop, docker]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: downloads
+          merge-multiple: true
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ls -la downloads
+          gh release create "${GITHUB_REF_NAME}" downloads/* --repo "$GITHUB_REPOSITORY" --title "Commercial Splitter ${GITHUB_REF_NAME#v}" --generate-notes
